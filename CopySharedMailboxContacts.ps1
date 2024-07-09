@@ -1,8 +1,8 @@
 #
 #   CopySharedMailboxContacts.ps1
 #
-#   Script to create Outlook contacts from AD User objects
-#   based on group memberships
+#   Script to copy Outlook contacts from a source mailbox to destination mailboxes which are a member of a specified group.
+#   Uses EWS Managed API
 #
 #   8/07/2024: V1.0 Initial Release
 #
@@ -20,9 +20,9 @@ $Config = Get-Content -Path $ConfigFile | ConvertFrom-Json
 [string]$ContactSourceMailbox = $Config.ContactSourceMailbox
 [string]$GroupForContactDestination = $Config.GroupForContactDestination
 [string]$ContactFolderName = $config.ContactFolderName
-[string]$BasePath = "C:\Admin\Scripts"
+[string]$BasePath = "C:\Admin\Scripts" # Base Path were Logfolder will be created
 $Script:NoLogging
-$ExchangeNameSpace = "winmail.e-control.loc"
+$ExchangeNameSpace = "mail.domain.com" # FQDN fo the Exchange Server
 [string]$LogfileFullPath = Join-Path -Path $BasePath (Join-Path $ContactFolderName ("CopySharedMailboxContacts_" + $($ContactSourceMailbox.Split("@")[0]) + "_{0:yyyyMMdd-HHmmss}.log" -f [DateTime]::Now))
 
 # Disable the Active Directory Provider
@@ -234,19 +234,8 @@ function GetContactDestination
     # Copy members to an arraylist so we can modify it in the loop
 
     return $DestinationMailboxes
-
-    #
-    # If the attribute "extensionAttribute1" contains "nocontact" remove the user from the arraylist
-    #
-
-    #foreach ($user in $DestinationMailboxes)
-    #{
-    #    if ($user.extensionAttribute1 -eq "nocontact")
-    #    {
-    #        $Finalmembers.Remove($user)
-    #    }
-    #}
 }
+
 function FolderExists 
 {
     param (
@@ -278,14 +267,7 @@ function ManageContactFolder
 
     $FolderClass = "IPF.Contact"
 
-    # Connect to the mailbox
-    #$Connection = Connect-Exchange -MailboxName $MailboxName
-
-    # Bind to the MsgFolderRoot folder
-    #$folderid = new-object Microsoft.Exchange.WebServices.Data.FolderId([Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::MsgFolderRoot, $MailboxName)
-    #$EWSParentFolder = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($Connection, $folderid)
-
-    # Bind tot the contacts folder
+    # Bind to the contacts folder
     $ContactsFolder = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($Connection, [Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::Contacts)
 
     #Define Folder Veiw Really only want to return one object
@@ -317,7 +299,6 @@ function ManageContactFolder
         catch
         {
             Write-LogFile -Mailbox $MailboxName -Message "Could not create folder $ContactFolderName." -ErrorInfo $_
-            Throw $_
         }
     }
 
@@ -355,14 +336,11 @@ function ManageContactFolder
             catch
             {
                 Write-LogFile -Mailbox $MailboxName -Message "Could not create folder $ContactFolderName." -ErrorInfo $_
-                Throw $_
             }
         }
-
     }
 
     return $NewFolder
-
 }
 
 function CreateContact 
@@ -419,11 +397,11 @@ function CreateContact
         catch
         {
             Write-LogFile -Mailbox $($connection.ImpersonatedUserId.Id) -Message "Could not create Contact $($Contact.Displayname)" -ErrorInfo $_
-            #Throw $_
         }
     }
 
-    else {
+    else
+    {
         Write-LogFile -Mailbox $($connection.ImpersonatedUserId.Id) -Message "Contact $DisplayName already exists in the folder."
     }
 }
