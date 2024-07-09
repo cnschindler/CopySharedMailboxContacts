@@ -22,7 +22,7 @@ $Config = Get-Content -Path $ConfigFile | ConvertFrom-Json
 [string]$ContactFolderName = $config.ContactFolderName
 [string]$BasePath = "C:\Admin\Scripts" # Base Path were Logfolder will be created
 $Script:NoLogging
-$ExchangeNameSpace = "mail.domain.com" # FQDN fo the Exchange Server
+$ExchangeNameSpace = "mail.domain.com" # FQDN of the Exchange Server
 [string]$LogfileFullPath = Join-Path -Path $BasePath (Join-Path $ContactFolderName ("CopySharedMailboxContacts_" + $($ContactSourceMailbox.Split("@")[0]) + "_{0:yyyyMMdd-HHmmss}.log" -f [DateTime]::Now))
 
 # Disable the Active Directory Provider
@@ -79,7 +79,6 @@ function Write-LogFile
         Write-Host $logLine
     }
 }
-
 function Load-EWSManagedAPI
 {
     ## Load Managed API dll
@@ -106,7 +105,6 @@ function Load-EWSManagedAPI
         exit
     }
 }
-
 function Connect-Exchange
 {
     #
@@ -139,7 +137,6 @@ function Connect-Exchange
 
     return $exservice
 }
-
 function GetSourceContacts
 {
     [CmdLetBinding()]
@@ -187,7 +184,6 @@ function GetSourceContacts
         Exit
     }
 }
-
 function GetContactDestination
 {
     [CmdLetBinding()]
@@ -236,25 +232,6 @@ function GetContactDestination
     return $DestinationMailboxes
 }
 
-function FolderExists 
-{
-    param (
-        [Microsoft.Exchange.WebServices.Data.ExchangeService]$Connection,
-        [Microsoft.Exchange.WebServices.Data.Folder]$ContactsFolder,
-        [string]$ContactFolderName
-    )
-
-    # Define a Search folder that is going to do a search based on the DisplayName of the folder
-    $SfSearchFilter = New-Object Microsoft.Exchange.WebServices.Data.SearchFilter+IsEqualTo([Microsoft.Exchange.WebServices.Data.FolderSchema]::DisplayName, $ContactFolderName)
-
-    # Define a folder view
-    $Folderview = New-Object Microsoft.Exchange.WebServices.Data.FolderView(1)
-
-    # Do the Search
-    $findFolderResults = $Connection.FindFolders($ContactsFolder.Id, $SfSearchFilter, $Folderview)
-
-    return $findFolderResults.TotalCount
-}
 function ManageContactFolder
 {
     [CmdLetBinding()]
@@ -277,8 +254,7 @@ function ManageContactFolder
     $NewFolder = new-object Microsoft.Exchange.WebServices.Data.Folder($Connection)
     $NewFolder.DisplayName = $ContactFolderName
     $NewFolder.FolderClass = $FolderClass
-    $EWSParentFolder = $null
-
+    
     # Define a Search folder that is going to do a search based on the DisplayName of the folder
     $SfSearchFilter = new-object Microsoft.Exchange.WebServices.Data.SearchFilter+IsEqualTo([Microsoft.Exchange.WebServices.Data.FolderSchema]::DisplayName, $ContactFolderName)
 
