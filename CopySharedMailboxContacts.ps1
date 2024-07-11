@@ -79,6 +79,7 @@ function Write-LogFile
         Write-Host $logLine
     }
 }
+
 function Load-EWSManagedAPI
 {
     ## Load Managed API dll
@@ -105,6 +106,7 @@ function Load-EWSManagedAPI
         exit
     }
 }
+
 function Connect-Exchange
 {
     #
@@ -121,11 +123,13 @@ function Connect-Exchange
     ## Set Exchange Version
     $ExchangeVersion = [Microsoft.Exchange.WebServices.Data.ExchangeVersion]::Exchange2013_SP1
 
-    ## Create Exchange Service Object
+    # Create Exchange Service Object
     $exservice = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService($ExchangeVersion)
 
-    ## Use the Default (logged On) credentials
+    # Use the Default (logged On) credentials
     $exservice.UseDefaultCredentials = $true
+    
+    # User Username/Pasword Auth
     #$exservice.Credentials = New-Object Net.NetworkCredential($username, $password)
 
     # Set EWS URL
@@ -137,6 +141,7 @@ function Connect-Exchange
 
     return $exservice
 }
+
 function GetSourceContacts
 {
     [CmdLetBinding()]
@@ -184,6 +189,7 @@ function GetSourceContacts
         Exit
     }
 }
+
 function GetContactDestination
 {
     [CmdLetBinding()]
@@ -197,7 +203,6 @@ function GetContactDestination
     #
     # Retrieve group members of specified group and store them in an array
     #
-
     $Members = @()
 
     try
@@ -216,8 +221,6 @@ function GetContactDestination
     #
     # Retrieve required properties of group members and store them in an array
     #
-
-
     $DestinationMailboxes = @()
 
     foreach ($member in $Members)
@@ -226,8 +229,6 @@ function GetContactDestination
         Write-LogFile -Message "Retrieved destination mailbox $($user.mail)"
         $DestinationMailboxes += $user
     }
-
-    # Copy members to an arraylist so we can modify it in the loop
 
     return $DestinationMailboxes
 }
@@ -244,7 +245,7 @@ function ManageContactFolder
 
     $FolderClass = "IPF.Contact"
 
-    # Bind to the contacts folder
+    # Bind tot the contacts folder
     $ContactsFolder = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($Connection, [Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::Contacts)
 
     #Define Folder Veiw Really only want to return one object
@@ -254,7 +255,7 @@ function ManageContactFolder
     $NewFolder = new-object Microsoft.Exchange.WebServices.Data.Folder($Connection)
     $NewFolder.DisplayName = $ContactFolderName
     $NewFolder.FolderClass = $FolderClass
-    
+
     # Define a Search folder that is going to do a search based on the DisplayName of the folder
     $SfSearchFilter = new-object Microsoft.Exchange.WebServices.Data.SearchFilter+IsEqualTo([Microsoft.Exchange.WebServices.Data.FolderSchema]::DisplayName, $ContactFolderName)
 
@@ -289,16 +290,13 @@ function ManageContactFolder
         {
             $findFolderResults.delete([Microsoft.Exchange.WebServices.Data.DeleteMode]::HardDelete)
             Write-LogFile -Mailbox $MailboxName -Message "Folder $ContactFolderName successfully deleted."
-
-            do { $findFolderResults1 = $Connection.FindFolders($ContactsFolder.Id, $SfSearchFilter, $fvFolderView); Start-Sleep -Seconds 4 }
-            until ($findFolderResults1.TotalCount -eq 0)
             $folderdeleted = $true
-        }
+       }
 
         catch
         {
+            $folderdeleted = $false
             Write-LogFile -Mailbox $MailboxName -Message "Could not delete folder $ContactFolderName." -ErrorInfo $_
-            Throw $_
         }
 
         # If the existing folder was successfully deleted
@@ -314,6 +312,7 @@ function ManageContactFolder
                 Write-LogFile -Mailbox $MailboxName -Message "Could not create folder $ContactFolderName." -ErrorInfo $_
             }
         }
+
     }
 
     return $NewFolder
@@ -430,8 +429,28 @@ foreach ($Mailbox in $Mailboxes)
     # Loop through contacts
     foreach ($contact in $SourceContacts)
     {
+        if ($Contact.PhoneNumbers.Contains("BusinessPhone"))
+        {
+            $BusinessPhoneNumber = $Contact.PhoneNumbers.Item("BusinessPhone")
+        }
+
+        else
+        {
+            $BusinessPhoneNumber = ""
+        }
+
+        if ($Contact.PhoneNumbers.Contains("MobilePhone"))
+        {
+            $MobilePhoneNumber = $Contact.PhoneNumbers.Item("MobilePhone")
+        }
+
+        else
+        {
+            $MobilePhoneNumber = ""
+        }
+
         # For each entry, create a new contact
-        CreateContact -folder $Folder -Connection $Connection -GivenName $Contact.GivenName -Surname $Contact.Surname -DisplayName $contact.DisplayName -Department $Contact.Department -Office $Contact.physicalDeliveryOfficeName -telephoneNumber $Contact.telephoneNumber -Mobile $Contact.mobile -mail $Contact.EmailAddresses[0].Address -title $Contact.Title -Thumbnailphoto $Contact.thumbnailPhoto
+        CreateContact -folder $Folder -Connection $Connection -GivenName $contact.GivenName -Surname $Contact.Surname -DisplayName $contact.DisplayName -Department $Contact.Department -Office $Contact.OfficeLocation -telephoneNumber $BusinessPhoneNumber -Mobile $MobilePhoneNumber -mail $Contact.EmailAddresses[0].Address -title $Contact.JobTitle -Thumbnailphoto $Contact.DirectoryPhoto
     }
 
     Write-LogFile -Message "Finished creating contacts in mailbox $($Mailbox.Displayname)."
